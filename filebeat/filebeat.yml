@@ -1,0 +1,11 @@
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/nginx/*.log
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+logging.level: debug
+logging.to_files: false
