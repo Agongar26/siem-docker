@@ -4,6 +4,7 @@ networks:
 
 volumes:
   nginx_logs:
+  ssh_logs:
 
 services:
   elasticsearch:
@@ -31,7 +32,11 @@ services:
       - siem-net
 
   logstash:
-    image: docker.elastic.co/logstash/logstash:8.12.0
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM docker.elastic.co/logstash/logstash:8.12.0
+        COPY logstash_pipeline/logstash.conf /usr/share/logstash/pipeline/logstash.conf
     container_name: logstash
     ports:
       - "5044:5044"
@@ -43,6 +48,10 @@ services:
   nginx-victima:
     image: nginx:latest
     container_name: nginx-victima
+    # Esto soluciona el problema de Nginx automáticamente
+    command: [nginx, "-g", "daemon off;", "-c", "/etc/nginx/nginx.conf"]
+    entrypoint: >
+      sh -c "rm -f /var/log/nginx/access.log && touch /var/log/nginx/access.log && exec \"$$@\"" --
     ports:
       - "8080:80"
     volumes:
@@ -50,14 +59,33 @@ services:
     networks:
       - siem-net
 
+  ssh-victima:
+    image: rastasheep/ubuntu-sshd:latest
+    container_name: ssh-victima
+    # Esto soluciona el problema de SSH automáticamente (LogLevel INFO escribe en rsyslog/archivo)
+    command: /usr/sbin/sshd -D -E /var/log/ssh_logs/auth.log
+    ports:
+      - "2222:22"
+    volumes:
+      - ssh_logs:/var/log/ssh_logs
+    networks:
+      - siem-net
+
   filebeat:
-    image: docker.elastic.co/beats/filebeat:8.12.0
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM docker.elastic.co/beats/filebeat:8.12.0
+        COPY filebeat_config/filebeat.yml /usr/share/filebeat/filebeat.yml
+        USER root
+        RUN chmod go-w /usr/share/filebeat/filebeat.yml
     container_name: filebeat
-    user: root
     volumes:
       - nginx_logs:/var/log/nginx:ro
+      - ssh_logs:/var/log/ssh_logs:ro
     depends_on:
       - nginx-victima
+      - ssh-victima
       - logstash
     networks:
       - siem-net

@@ -1,9 +1,13 @@
 filebeat.inputs:
 - type: filestream
-  id: nginx-access-logs
-  enabled: true
+  id: nginx-access
   paths:
     - /var/log/nginx/access.log
+
+- type: filestream
+  id: ssh-auth
+  paths:
+    - /var/log/ssh_logs/auth.log
 
 output.logstash:
   hosts: ["logstash:5044"]
