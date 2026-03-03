@@ -7,5 +7,5 @@ filebeat.inputs:
 output.logstash:
   hosts: ["logstash:5044"]
 
-logging.level: debug
+logging.level: info
 logging.to_files: false
